@@ -1,0 +1,7 @@
+S -> E | SA | A
+E -> if (C) {S} | if (C) {S} else {S}
+A -> V := T;
+T -> a | b
+V -> x | y
+C -> V O T | T O V | V O V | T O T
+O -> < | >
