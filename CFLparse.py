@@ -3,6 +3,7 @@ import sys
 
 RESERVED = ['$']
 
+"""
 # 1. read in file with language
 lines = []
 with open('conditional.grm', 'r') as g:
@@ -33,7 +34,7 @@ for line in lines:
             terminals.append(letter)
 
 print terminals
-
+"""
 # 4. build parse table
 # Chomsky Normal Form:
 # All rules of the form:
@@ -103,8 +104,7 @@ remaining_string = list(string[::-1])
 parse_string = ['$', start]
 
 while remaining_string and parse_string:
-    print remaining_string
-    print parse_string
+    print ''.join(remaining_string), ''.join(parse_string)
     
     string_sym = remaining_string.pop()
     parse_sym = parse_string.pop()
@@ -130,8 +130,7 @@ while remaining_string and parse_string:
 
 
 if remaining_string or parse_string:
-    print remaining_string
-    print parse_string
+    print remaining_string, parse_string
     print "REJECTED, YOU LOSER."
 else:
     print "ACCEPTED, YOU ASSHOLE"
