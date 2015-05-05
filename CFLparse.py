@@ -22,7 +22,7 @@ for line in lines:
 print variables
 
 # 3. extract terminals
-terminals = []
+terminals = ['$']
 
 for line in lines:
     for letter in line.replace("->", ""):
@@ -51,6 +51,9 @@ print terminals
 
 # table maps (Variable, Terminal) -> String
 start = 'S'
+
+variables = list('SREFATVCDO')
+terminals = list("if(){}els:=;abxy<>$")
 
 table = {}
 
@@ -96,10 +99,13 @@ table['O','>'] = ">"
 with open(sys.argv[1], 'r') as g:
     string = "".join(g.read().split()) + '$'
 
-remaining_string = list(string)
-parse_string = [start, '$']
+remaining_string = list(string[::-1])
+parse_string = ['$', start]
 
 while remaining_string and parse_string:
+    print remaining_string
+    print parse_string
+    
     string_sym = remaining_string.pop()
     parse_sym = parse_string.pop()
 
@@ -107,11 +113,12 @@ while remaining_string and parse_string:
         try:
             substitute = table[parse_sym, string_sym]
         except KeyError:
-            parse_string.push(parse_sym)
             break
-
-        for sym in substitute[::-1]:
-            parse_sym.push(sym)
+        
+        remaining_string.append(string_sym)
+        if substitute != "epsilon":
+            for sym in substitute[::-1]:
+                parse_string.append(sym)
 
     elif parse_sym in terminals:
         if parse_sym == string_sym:
@@ -121,7 +128,10 @@ while remaining_string and parse_string:
         print "SYMBOL NOT RECOGNISED, YOU FUCKWIT."
         break
 
+
 if remaining_string or parse_string:
+    print remaining_string
+    print parse_string
     print "REJECTED, YOU LOSER."
 else:
     print "ACCEPTED, YOU ASSHOLE"
