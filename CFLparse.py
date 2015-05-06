@@ -2,7 +2,7 @@ import sys
 # CFL Parser
 
 RESERVED = ['$']
-
+EPSILON = ""
 """
 # 1. read in file with language
 lines = []
@@ -50,6 +50,7 @@ print terminals
 
 # Default table:
 
+
 # table maps (Variable, Terminal) -> String
 start = 'S'
 
@@ -58,44 +59,77 @@ terminals = list("if(){}els:=;abxy<>$")
 
 table = {}
 
-table['S','i'] = "ER"
-table['S','x'] = "AR"
-table['S','y'] = "AR"
+table['S'] = {}
+table['S']['i'] = "ER"
+table['S']['x'] = "AR"
+table['S']['y'] = "AR"
 
-table['R','}'] = "epsilon"
-table['R','x'] = "AR"
-table['R','y'] = "AR"
-table['R','$'] = "epsilon"
+table['R'] = {}
+table['R']['}'] = EPSILON
+table['R']['x'] = "AR"
+table['R']['y'] = "AR"
+table['R']['$'] = EPSILON
 
-table['E','i'] = "if(C){S}F"
+table['E'] = {}
+table['E']['i'] = "if(C){S}F"
 
-table['F','e'] = "else{S}"
-table['F','x'] = "epsilon"
-table['F','y'] = "epsilon"
-table['F','}'] = "epsilon"
-table['F','$'] = "epsilon"
+table['F'] = {}
+table['F']['e'] = "else{S}"
+table['F']['x'] = EPSILON
+table['F']['y'] = EPSILON
+table['F']['}'] = EPSILON
+table['F']['$'] = EPSILON
 
-table['A','x'] = "V:=T;"
-table['A','y'] = "V:=T;"
+table['A'] = {}
+table['A']['x'] = "V:=T;"
+table['A']['y'] = "V:=T;"
 
-table['T','a'] = "a"
-table['T','b'] = "b"
+table['T'] = {}
+table['T']['a'] = "a"
+table['T']['b'] = "b"
 
-table['V','x'] = "x"
-table['V','y'] = "y"
+table['V'] = {}
+table['V']['x'] = "x"
+table['V']['y'] = "y"
 
-table['C','a'] = "DOD"
-table['C','b'] = "DOD"
-table['C','x'] = "DOD"
-table['C','y'] = "DOD"
+table['C'] = {}
+table['C']['a'] = "DOD"
+table['C']['b'] = "DOD"
+table['C']['x'] = "DOD"
+table['C']['y'] = "DOD"
 
-table['D','a'] = "T"
-table['D','b'] = "T"
-table['D','x'] = "V"
-table['D','y'] = "V"
+table['D'] = {}
+table['D']['a'] = "T"
+table['D']['b'] = "T"
+table['D']['x'] = "V"
+table['D']['y'] = "V"
 
-table['O','<'] = "<"
-table['O','>'] = ">"
+table['O'] = {}
+table['O']['<'] = "<"
+table['O']['>'] = ">"
+
+def first(string):
+    symbol = string[:1]
+
+    if symbol in variables:
+        init_set = set()
+        for rule in table[symbol].values():
+            init_set |= first(rule)
+        
+        if EPSILON in init_set:
+            return (init_set - {EPSILON}) | first(string[1:])
+        else:
+            return init_set
+    elif string == EPSILON:
+        return {EPSILON}
+    else:
+        return {symbol}
+
+
+for v in variables:
+    print v + ":", first(v)
+
+print '\n---\n'
 
 with open(sys.argv[1], 'r') as g:
     string = "".join(g.read().split()) + '$'
@@ -104,19 +138,19 @@ remaining_string = list(string[::-1])
 parse_string = ['$', start]
 
 while remaining_string and parse_string:
-    print ''.join(remaining_string), ''.join(parse_string)
+    print ''.join(reversed(remaining_string)), ''.join(reversed(parse_string))
     
     string_sym = remaining_string.pop()
     parse_sym = parse_string.pop()
 
     if parse_sym in variables:
         try:
-            substitute = table[parse_sym, string_sym]
+            substitute = table[parse_sym][string_sym]
         except KeyError:
             break
         
         remaining_string.append(string_sym)
-        if substitute != "epsilon":
+        if substitute != EPSILON:
             for sym in substitute[::-1]:
                 parse_string.append(sym)
 
