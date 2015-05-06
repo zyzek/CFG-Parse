@@ -4,40 +4,40 @@ import sys
 RESERVED = ['$']
 EPSILON = ""
 
-# 1. read in file with language
-lines = []
+
+# 1. read grammar file
+
+LINES = []
 with open('corrected.grm', 'r') as g:
     for line in g:
-        lines.append("".join(line.split()).replace("epsilon", EPSILON))
+        LINES.append("".join(line.split()).replace("epsilon", EPSILON))
 
-print lines
 
 # 2. extract rules, variables
-RULES = {}
-START = lines[0][0]
 
-for line in lines:
+RULES = {}
+START = LINES[0][0]
+
+for line in LINES:
     rule = line.split("->")
     assert len(rule[0]) == 1
     RULES[rule[0]] = set(rule[1].split("|"))
 
-print RULES
-print RULES.keys()
-
 VARIABLES = RULES.keys()
 
+
 # 3. extract terminals
+
 TERMINALS = ['$']
 
-for line in lines:
+for line in LINES:
     for letter in line.replace("->", ""):
         if not (letter in VARIABLES or letter in TERMINALS or letter == "|"):
             if letter in RESERVED:
                 print "Reserved symbol in grammar:", letter
-                sys.exit()
+                sys.exit(1)
             TERMINALS.append(letter)
 
-print TERMINALS
 
 # 4. build parse table
 
@@ -80,10 +80,9 @@ def follow(variable):
                 index = prod.find(variable, index + 1)
     return follow_set
 
-
+# P_TABLE maps (Variable, Terminal) -> String
 P_TABLE = {var: {} for var in VARIABLES}
 
-print
 for var in RULES:
     for prod in RULES[var]:
         first_set = first(prod)
@@ -92,91 +91,18 @@ for var in RULES:
             follow_set = follow(var)
        
         if not first_set.isdisjoint(follow_set):
-            print "FI, FO NOT DISJOINT; GRAMMAR NOT LL(1)"
-            exit(1)
+            print "First, Follow sets on",  prod, "not disjoint; grammar not LL(1)"
+            sys.exit(1)
 
         for term in (first_set | follow_set) - {EPSILON}:
             if term not in P_TABLE[var]:
                 P_TABLE[var][term] = prod
             else:
-                print P_TABLE[var], term, prod
-                print "GRAMMAR NOT LL(1)"
-                exit(1)
+                print "Production ambiguity on [" + var + "," + term + "]; grammar not LL(1)"
+                sys.exit(1)
 
 
-print P_TABLE
-
-for v in VARIABLES:
-    f = first(v)
-    #if EPSILON not in f:
-    #    print "Fi(" + v + "):", list(f)
-    #else:
-    print "Fi(" + v + "):", list(f), "  Fo(" + v + "):", list(follow(v))
-
-print '\n---\n'
-
-
-
-# table maps (Variable, Terminal) -> String
-
-#VARIABLES = list('SREFATVCDO')
-#TERMINALS = list("if(){}els:=;abxy<>$")
-#START = 'S'
-
-table = {}
-
-table['S'] = {}
-table['S']['i'] = "ER"
-table['S']['x'] = "AR"
-table['S']['y'] = "AR"
-
-table['R'] = {}
-table['R']['}'] = EPSILON
-table['R']['x'] = "AR"
-table['R']['y'] = "AR"
-table['R']['$'] = EPSILON
-
-table['E'] = {}
-table['E']['i'] = "if(C){S}F"
-
-table['F'] = {}
-table['F']['e'] = "else{S}"
-table['F']['x'] = EPSILON
-table['F']['y'] = EPSILON
-table['F']['}'] = EPSILON
-table['F']['$'] = EPSILON
-
-table['A'] = {}
-table['A']['x'] = "V:=T;"
-table['A']['y'] = "V:=T;"
-
-table['T'] = {}
-table['T']['a'] = "a"
-table['T']['b'] = "b"
-
-table['V'] = {}
-table['V']['x'] = "x"
-table['V']['y'] = "y"
-
-table['C'] = {}
-table['C']['a'] = "DOD"
-table['C']['b'] = "DOD"
-table['C']['x'] = "DOD"
-table['C']['y'] = "DOD"
-
-table['D'] = {}
-table['D']['a'] = "T"
-table['D']['b'] = "T"
-table['D']['x'] = "V"
-table['D']['y'] = "V"
-
-table['O'] = {}
-table['O']['<'] = "<"
-table['O']['>'] = ">"
-
-table = P_TABLE
-
-# 5. parse String
+# 5. Parse String
 
 with open(sys.argv[1], 'r') as g:
     string = "".join(g.read().split()) + '$'
@@ -189,11 +115,16 @@ while remaining_string and parse_string:
     
     string_sym = remaining_string.pop()
     parse_sym = parse_string.pop()
+    
+    if string_sym not in TERMINALS:
+        print "ERROR:\033[1;31m", string_sym, "\033[0mis not a terminal of the given language."
+        break;
 
     if parse_sym in VARIABLES:
         try:
-            substitute = table[parse_sym][string_sym]
+            substitute = P_TABLE[parse_sym][string_sym]
         except KeyError:
+            print "ERROR:\033[1;31m", string_sym, "\033[0mobtained; but variable\033[1;36m", parse_sym, "\033[0mexpects one of\033[1;32m", P_TABLE[parse_sym].keys(), "\033[0m."
             break
         
         remaining_string.append(string_sym)
@@ -201,17 +132,13 @@ while remaining_string and parse_string:
             for sym in substitute[::-1]:
                 parse_string.append(sym)
 
-    elif parse_sym in TERMINALS:
-        if parse_sym == string_sym:
-            continue
     else:
-        print string_sym
-        print "SYMBOL NOT RECOGNISED, YOU FUCKWIT."
-        break
+        if parse_sym != string_sym:
+            print "ERROR: Terminal mismatch."
+            break
 
 
 if remaining_string or parse_string:
-    print remaining_string, parse_string
-    print "REJECTED, YOU LOSER."
+    print "REJECTED"
 else:
-    print "ACCEPTED, YOU ASSHOLE"
+    print "ACCEPTED"
