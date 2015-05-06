@@ -3,59 +3,125 @@ import sys
 
 RESERVED = ['$']
 EPSILON = ""
-"""
+
 # 1. read in file with language
 lines = []
-with open('conditional.grm', 'r') as g:
+with open('corrected.grm', 'r') as g:
     for line in g:
-        lines.append("".join(line.split()))
+        lines.append("".join(line.split()).replace("epsilon", EPSILON))
 
 print lines
 
-# 2. extract variables
-variables = {}
+# 2. extract rules, variables
+RULES = {}
+START = lines[0][0]
 
 for line in lines:
     rule = line.split("->")
     assert len(rule[0]) == 1
-    variables[rule[0]] = set(rule[1].split("|"))
+    RULES[rule[0]] = set(rule[1].split("|"))
 
-print variables
+print RULES
+print RULES.keys()
+
+VARIABLES = RULES.keys()
 
 # 3. extract terminals
-terminals = ['$']
+TERMINALS = ['$']
 
 for line in lines:
     for letter in line.replace("->", ""):
-        if not (letter in variables.keys() or letter in terminals or letter == "|"):
+        if not (letter in VARIABLES or letter in TERMINALS or letter == "|"):
             if letter in RESERVED:
                 print "Reserved symbol in grammar:", letter
                 sys.exit()
-            terminals.append(letter)
+            TERMINALS.append(letter)
 
-print terminals
-"""
+print TERMINALS
+
 # 4. build parse table
-# Chomsky Normal Form:
-# All rules of the form:
-# A -> BC
-# A -> a
-# S -> epsilon if the language contains epsilon.
-#   - eliminate epsilon rules
-#   - eliminate unit rules
-#   - reduce long rules to short rules
-#   - move terminals to unit productions
 
-# 5. parse String
+def first(string):
+    symbol = string[:1]
 
-# Default table:
+    if symbol in VARIABLES:
+        init_set = set()
+        for rule in RULES[symbol]:
+            if symbol != rule[:1]:
+                init_set |= first(rule)
+        
+        if EPSILON in init_set:
+            return (init_set - {EPSILON}) | first(string[1:])
+        else:
+            return init_set
+    elif string == EPSILON:
+        return {EPSILON}
+    else:
+        return {symbol}
+
+
+def follow(variable):
+    follow_set = {'$'} if variable == START else set()
+
+    for var in VARIABLES:
+        for prod in RULES[var]:
+            index = prod.find(variable)
+            followed = False
+            
+            while index != -1:
+                init_set = first(prod[index + 1:])
+                
+                if not followed and var != variable and EPSILON in init_set:
+                    init_set |= follow(var)
+                    followed = True
+
+                follow_set |= (init_set - {EPSILON})
+
+                index = prod.find(variable, index + 1)
+    return follow_set
+
+
+P_TABLE = {var: {} for var in VARIABLES}
+
+print
+for var in RULES:
+    for prod in RULES[var]:
+        first_set = first(prod)
+        follow_set = set()
+        if EPSILON in first_set:
+            follow_set = follow(var)
+       
+        if not first_set.isdisjoint(follow_set):
+            print "FI, FO NOT DISJOINT; GRAMMAR NOT LL(1)"
+            exit(1)
+
+        for term in (first_set | follow_set) - {EPSILON}:
+            if term not in P_TABLE[var]:
+                P_TABLE[var][term] = prod
+            else:
+                print P_TABLE[var], term, prod
+                print "GRAMMAR NOT LL(1)"
+                exit(1)
+
+
+print P_TABLE
+
+for v in VARIABLES:
+    f = first(v)
+    #if EPSILON not in f:
+    #    print "Fi(" + v + "):", list(f)
+    #else:
+    print "Fi(" + v + "):", list(f), "  Fo(" + v + "):", list(follow(v))
+
+print '\n---\n'
+
 
 
 # table maps (Variable, Terminal) -> String
-start = 'S'
 
-variables = list('SREFATVCDO')
-terminals = list("if(){}els:=;abxy<>$")
+#VARIABLES = list('SREFATVCDO')
+#TERMINALS = list("if(){}els:=;abxy<>$")
+#START = 'S'
 
 table = {}
 
@@ -108,34 +174,15 @@ table['O'] = {}
 table['O']['<'] = "<"
 table['O']['>'] = ">"
 
-def first(string):
-    symbol = string[:1]
+table = P_TABLE
 
-    if symbol in variables:
-        init_set = set()
-        for rule in table[symbol].values():
-            init_set |= first(rule)
-        
-        if EPSILON in init_set:
-            return (init_set - {EPSILON}) | first(string[1:])
-        else:
-            return init_set
-    elif string == EPSILON:
-        return {EPSILON}
-    else:
-        return {symbol}
-
-
-for v in variables:
-    print v + ":", first(v)
-
-print '\n---\n'
+# 5. parse String
 
 with open(sys.argv[1], 'r') as g:
     string = "".join(g.read().split()) + '$'
 
 remaining_string = list(string[::-1])
-parse_string = ['$', start]
+parse_string = ['$', START]
 
 while remaining_string and parse_string:
     print ''.join(reversed(remaining_string)), ''.join(reversed(parse_string))
@@ -143,7 +190,7 @@ while remaining_string and parse_string:
     string_sym = remaining_string.pop()
     parse_sym = parse_string.pop()
 
-    if parse_sym in variables:
+    if parse_sym in VARIABLES:
         try:
             substitute = table[parse_sym][string_sym]
         except KeyError:
@@ -154,7 +201,7 @@ while remaining_string and parse_string:
             for sym in substitute[::-1]:
                 parse_string.append(sym)
 
-    elif parse_sym in terminals:
+    elif parse_sym in TERMINALS:
         if parse_sym == string_sym:
             continue
     else:

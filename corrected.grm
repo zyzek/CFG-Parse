@@ -1,0 +1,10 @@
+S -> AR | ER
+R -> AR | epsilon
+E -> if (C) {S} F
+F -> epsilon | else {S}
+A -> V := T;
+T -> a | b
+V -> x | y
+C -> D O D
+D -> V | T
+O -> < | >
