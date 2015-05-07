@@ -24,22 +24,22 @@ RESERVED = [END]
 
 # 0. handle arguments
 
-parse_file = 'accept.txt'
-grammar_file = 'corrected.grm'
+parse_file = 'tests/accept.txt'
+grammar_file = 'grammars/corrected.grm'
 recovery = False
 
 if len(sys.argv) >= 2:
     parse_file = sys.argv[1]
 
 if len(sys.argv) == 4:
-    grammar = sys.argv[2]
+    grammar_file = sys.argv[2]
     if sys.argv[3] == "-e":
         recovery = True
 elif len(sys.argv) == 3:
     if sys.argv[2] == "-e":
         recovery = True
     else:
-        grammar = sys.argv[2]
+        grammar_file = sys.argv[2]
 
 
 # 1. extract grammar
@@ -126,7 +126,7 @@ for var in RULES:
             follow_set = follow(var)
        
         if not first_set.isdisjoint(follow_set):
-            print "First, Follow sets on",  prod, "not disjoint; grammar not LL(1)"
+            print "First, Follow sets on",  var, "not disjoint; grammar not LL(1)"
             sys.exit(1)
 
         for term in (first_set | follow_set) - {EPSILON}:

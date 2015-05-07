@@ -1,0 +1,3 @@
+S -> BC | a
+B -> bB | epsilon
+C -> cC | epsilon

@@ -1,0 +1,5 @@
+E -> TG
+G -> + TG | - TG | = TG | epsilon
+T -> FS
+S -> * FS | / FS | epsilon
+F -> x | y | z | 1 | 2 | 3 | 0 | (E) | -F
