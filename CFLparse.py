@@ -115,6 +115,26 @@ def find_close_valid(string, stack):
         current = queue.popleft()
 
         result = parse_string(*(current[:2]))
+       
+        #print
+        #print "------"
+        #print 
+        #print "current: ", current 
+        #print "result: ", result
+        #print "queue: ", queue
+        #print "tried", tried
+        #print
+
+        """if result[0][0] != END:
+            print
+            print string
+            print stack
+            print result
+            print current
+            print tried
+            print queue
+            print"""
+
         if result != -1:
             result = list(result)
 
@@ -122,36 +142,39 @@ def find_close_valid(string, stack):
             return current[0] + current[2]
         else:
             tried.append(current[:2])
-            string_sym = result[0].pop()
-            parse_sym = result[1].pop()
+            string_sym = result[0][-1]
+            parse_sym = result[1][-1]
            
             # reversing insertion
+            # delete one character from result[0]
+            # leave result[1] the same
             if string_sym != END:
-                result[1].append(parse_sym)
-                if result not in tried:
-                    queue.append([ list(result[0]), list(result[1]), current[0][len(result[0]):] + current[2] ])
-                result[1].pop()
+                #print "insertions"
+                candidate = [ list(result[0][:-1]), list(result[1]), list(current[0][len(result[0][:-1]) + 1:] + current[2]) ]
+                if candidate not in tried:
+                    queue.append(candidate)
+                    #print "added", queue[-1]
 
             # reversing deletion
             # If symbol not in terminals, must have gotten there by an insertion
             # so don't do the deletion procedure for this symbol.
             if string_sym in TERMINALS:
+                # leave result[1] the same, but stick whatever is at the head of result[1] on the head of result[0]
                 if parse_sym in TERMINALS:
+                    #print "terminal deletions"
                     #insert the character which was expected -- super naive, but should catch point removals
-                    result[0].append(parse_sym)
-                    if result not in tried:
-                        queue.append([ list(result[0]), list(result[1]), current[0][len(result[0]):] + current[2] ])
-                    result[0].pop()
+                    candidate = [ list(result[0]) + [result[1][-1]], list(result[1]), current[0][len(result[0]):] + current[2] ]
+                    if candidate not in tried:
+                        queue.append(candidate)
+                        #print "added", queue[-1]
+                # leave result[1] the same, but stick whatever the expanded variable is at the front of result[0]
                 else:
-                    result[1].append(parse_sym)
+                    #print "variable deletions"
                     for prod in P_TABLE[parse_sym].values():
-                        for c in prod[::-1]:
-                            result[0].append(c)
-                        if result not in tried:
-                            queue.append([ list(result[0]), list(result[1]), current[0][len(result[0]):] + current[2] ])
-                        for c in prod:
-                            result[0].pop()
-                    result[1].pop()
+                        candidate = [ list(result[0]) + list(prod[::-1]), list(result[1]), current[0][len(result[0]):] + current[2] ]
+                        if candidate not in tried:
+                            queue.append(candidate)
+                            #print "added", queue[-1]
             
 # Attempts to parse a string. 
 # If no initial string is given, the file given in the first argument is consulted.
@@ -184,7 +207,7 @@ def parse_string(init_string = None, init_stack = None, correct_errors=False, ve
             parse_stack.append(parse_sym)
 
             if not correct_errors:
-                return (remaining, parse_stack)
+                break
             else:
                 prev = remaining
                 remaining = find_close_valid(remaining, parse_stack)
@@ -203,7 +226,7 @@ def parse_string(init_string = None, init_stack = None, correct_errors=False, ve
                 parse_stack.append(parse_sym)
 
                 if not correct_errors:
-                    return (remaining, parse_stack) 
+                    break
                 else:
                     prev = remaining
                     remaining = find_close_valid(remaining, parse_stack)
@@ -224,7 +247,7 @@ def parse_string(init_string = None, init_stack = None, correct_errors=False, ve
                 parse_stack.append(parse_sym)
                 
                 if not correct_errors:
-                    return (remaining, parse_stack)
+                    break
                 else:
                     prev = remaining
                     remaining = find_close_valid(remaining, parse_stack)
@@ -237,7 +260,7 @@ def parse_string(init_string = None, init_stack = None, correct_errors=False, ve
     if remaining or parse_stack:
         if verbose:
             print "REJECTED"
-        return index
+        return (remaining, parse_stack)
     else:
         if verbose:
             print "ACCEPTED"
@@ -245,4 +268,5 @@ def parse_string(init_string = None, init_stack = None, correct_errors=False, ve
 
 
 print parse_string(correct_errors = True, verbose = True)
-#parse_string()
+#parse_string(verbose = True)
+#parse_string(["$", "}"], ["$", "R", "F", "}", "R"], verbose = True)
