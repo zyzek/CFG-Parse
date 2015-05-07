@@ -1,23 +1,56 @@
+"""
+    LL(1) CFG parser
+    
+    Author: Anton Jurisevic -- 311180051 -- ajur4521
+
+    Given an LL(1) grammar and a string,
+    this program will determine whether the string belongs
+    to the language defined by the grammar.
+    
+    If -e is given as an argument, any rejected input will
+    be modified to produce a similar accepted string.
+
+    Arguments:
+    inputfile [grammarfile] [-e]
+"""
+
 import sys
 from collections import deque
-
-# CFL Parser
 
 EPSILON = ""
 END = '$'
 RESERVED = [END]
 
 
-# 1. read grammar file
+# 0. handle arguments
+
+parse_file = 'accept.txt'
+grammar_file = 'corrected.grm'
+recovery = False
+
+if len(sys.argv) >= 2:
+    parse_file = sys.argv[1]
+
+if len(sys.argv) == 4:
+    grammar = sys.argv[2]
+    if sys.argv[3] == "-e":
+        recovery = True
+elif len(sys.argv) == 3:
+    if sys.argv[2] == "-e":
+        recovery = True
+    else:
+        grammar = sys.argv[2]
+
+
+# 1. extract grammar
 
 LINES = []
-with open('corrected.grm', 'r') as g:
+with open(grammar_file, 'r') as g:
     for line in g:
         LINES.append("".join(line.split()).replace("epsilon", EPSILON))
+        # whitespace is stripped, epsilon handled
 
-
-# 2. extract rules, variables
-
+#   rules, variables
 RULES = {}
 START = LINES[0][0]
 
@@ -28,9 +61,7 @@ for line in LINES:
 
 VARIABLES = RULES.keys()
 
-
-# 3. extract terminals
-
+#   terminals
 TERMINALS = [END]
 
 for line in LINES:
@@ -42,8 +73,9 @@ for line in LINES:
             TERMINALS.append(letter)
 
 
-# 4. build parse table
+# 2. build parse table
 
+""" Returns the FIRST set of a given string. """
 def first(string):
     symbol = string[:1]
 
@@ -62,7 +94,7 @@ def first(string):
     else:
         return {symbol}
 
-
+""" Returns the FOLLOW set of a given variable. """
 def follow(variable):
     follow_set = {END} if variable == START else set()
 
@@ -83,7 +115,7 @@ def follow(variable):
                 index = prod.find(variable, index + 1)
     return follow_set
 
-# P_TABLE maps (Variable, Terminal) -> String
+# Construct the parse table itself, which is a function (Variable, Terminal) -> String
 P_TABLE = {var: {} for var in VARIABLES}
 
 for var in RULES:
@@ -101,20 +133,25 @@ for var in RULES:
             if term not in P_TABLE[var]:
                 P_TABLE[var][term] = prod
             else:
-                print "Production ambiguity on [" + var + "," + term + "]; grammar not LL(1)"
+                print "Production ambiguity on ["+var+","+term+"]; grammar not LL(1)"
                 sys.exit(1)
 
 
-# 5. Parse String
+# 3. Parse String
 
+""" Given a string and a parsing stack, returns a 'similar' string satisfying the stack"""
 def find_close_valid(string, stack):
     tried = []
+    
+    # each queue entry is as follows:
+    # [invalid substring, stack at point of invalidation, initial valid substring] 
     queue = deque([[string, stack, []]])
 
     while True:
         current = queue.popleft()
-
-        result = parse_string(*(current[:2]))
+        
+        # result[0] = invalid substring; result[1] = stack at point of invalidation
+        result = parse_string(*(current[:2]), verbose=False)
        
         #print
         #print "------"
@@ -145,52 +182,60 @@ def find_close_valid(string, stack):
             string_sym = result[0][-1]
             parse_sym = result[1][-1]
            
-            # reversing insertion
-            # delete one character from result[0]
-            # leave result[1] the same
+            # insertion reversal
+            # delete one character from result[0], leave result[1] the same
             if string_sym != END:
                 #print "insertions"
-                candidate = [ list(result[0][:-1]), list(result[1]), list(current[0][len(result[0][:-1]) + 1:] + current[2]) ]
+                candidate = [ list(result[0][:-1]), 
+                              list(result[1]), 
+                              list(current[0][len(result[0][:-1]) + 1:] + current[2]) ]
+                
                 if candidate not in tried:
                     queue.append(candidate)
                     #print "added", queue[-1]
 
-            # reversing deletion
-            # If symbol not in terminals, must have gotten there by an insertion
-            # so don't do the deletion procedure for this symbol.
+            # deletion reversal
+            # If symbol not a terminal, must have been inserted, so don't reverse deletion
             if string_sym in TERMINALS:
-                # leave result[1] the same, but stick whatever is at the head of result[1] on the head of result[0]
+                # retain result[1], prepend head of result[1] to result[0]
                 if parse_sym in TERMINALS:
                     #print "terminal deletions"
-                    #insert the character which was expected -- super naive, but should catch point removals
-                    candidate = [ list(result[0]) + [result[1][-1]], list(result[1]), current[0][len(result[0]):] + current[2] ]
+                    #insert what was expected -- naive, but catches point removals
+                    candidate = [ list(result[0]) + [result[1][-1]], 
+                                  list(result[1]), 
+                                  current[0][len(result[0]):] + current[2] ]
+                    
                     if candidate not in tried:
                         queue.append(candidate)
                         #print "added", queue[-1]
-                # leave result[1] the same, but stick whatever the expanded variable is at the front of result[0]
+                # retain result[1], prepend valid terminals to result[0]
                 else:
                     #print "variable deletions"
                     for term in P_TABLE[parse_sym].keys():
-                        candidate = [ list(result[0]) + [term], list(result[1]), current[0][len(result[0]):] + current[2] ]
+                        candidate = [ list(result[0]) + [term], 
+                                      list(result[1]), 
+                                      current[0][len(result[0]):] + current[2] ]
+                        
                         if candidate not in tried:
                             queue.append(candidate)
                             #print "added", queue[-1]
             
-# Attempts to parse a string. 
-# If no initial string is given, the file given in the first argument is consulted.
-# If no initial stack is specified, the start symbol is used as the initialiser.
-# If correct_errors is true, invalid strings will be corrected, and the new string printed.
-def parse_string(init_string = None, init_stack = None, correct_errors=False, verbose=False):
+""" Attempts to parse a string. 
+ If no initial string is given, the file given in the first argument is consulted.
+ If no initial stack is specified, the start symbol is used as the initialiser.
+ If correct_errors is true, invalid substrings will be corrected.
+ If verbose is false, no trace will be printed. """
+def parse_string(init_string = None, init_stack = None, correct_errors=False, verbose=True):
     
+    # Obtain input string
     if init_string is None:
-        with open(sys.argv[1], 'r') as g:
+        with open(parse_file, 'r') as g:
             string = "".join(g.read().split()) + END
 
         remaining = list(string[::-1])
     else:
         remaining = list(init_string)
     parse_stack = [END, START] if init_stack is None else list(init_stack)
-    index = 0
 
     while remaining and parse_stack:
         if verbose:
@@ -255,7 +300,6 @@ def parse_string(init_string = None, init_stack = None, correct_errors=False, ve
                         print "Modifying remaining string:", ''.join(reversed(prev)), "->", ''.join(reversed(remaining))
                     continue
 
-            index += 1
 
     if remaining or parse_stack:
         if verbose:
@@ -267,6 +311,4 @@ def parse_string(init_string = None, init_stack = None, correct_errors=False, ve
         return -1
 
 
-print parse_string(correct_errors = True, verbose = True)
-#parse_string(verbose = True)
-#parse_string(["$", "}"], ["$", "R", "F", "}", "R"], verbose = True)
+parse_string(correct_errors = recovery)
