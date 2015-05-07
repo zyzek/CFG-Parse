@@ -113,7 +113,10 @@ def find_close_valid(string, stack):
 
     while True:
         current = queue.popleft()
-        result = list(parse_string(*(current[:2])))
+
+        result = parse_string(*(current[:2]))
+        if result != -1:
+            result = list(result)
 
         if result == -1:
             return current[0] + current[2]
@@ -122,33 +125,39 @@ def find_close_valid(string, stack):
             string_sym = result[0].pop()
             parse_sym = result[1].pop()
            
-            # deletion
+            # reversing insertion
+            if string_sym != END:
+                result[1].append(parse_sym)
+                if result not in tried:
+                    queue.append([ list(result[0]), list(result[1]), current[0][len(result[0]):] + current[2] ])
+                result[1].pop()
+
+            # reversing deletion
             # If symbol not in terminals, must have gotten there by an insertion
             # so don't do the deletion procedure for this symbol.
-            if string_sym in TERMINALS and string_sym != END:
+            if string_sym in TERMINALS:
                 if parse_sym in TERMINALS:
                     #insert the character which was expected -- super naive, but should catch point removals
                     result[0].append(parse_sym)
                     if result not in tried:
-                        queue.append(result + [current[0][:len(current[0]) - len(result[0])] + current[2]])
+                        queue.append([ list(result[0]), list(result[1]), current[0][len(result[0]):] + current[2] ])
                     result[0].pop()
                 else:
-                    for term in P_TABLE[parse_sym].keys():
-                        result[0].append(term)
+                    result[1].append(parse_sym)
+                    for prod in P_TABLE[parse_sym].values():
+                        for c in prod[::-1]:
+                            result[0].append(c)
                         if result not in tried:
-                            queue.append(result + [current[0][:len(current[0]) - len(result[0])] + current[2]])
-                        result[0].pop() 
+                            queue.append([ list(result[0]), list(result[1]), current[0][len(result[0]):] + current[2] ])
+                        for c in prod:
+                            result[0].pop()
+                    result[1].pop()
             
-            # insertion
-            result[1].append(parse_sym)
-            if result not in tried:
-                queue.append(result + [current[0][:len(current[0]) - len(result[0])] + current[2]])
-        
 # Attempts to parse a string. 
 # If no initial string is given, the file given in the first argument is consulted.
 # If no initial stack is specified, the start symbol is used as the initialiser.
 # If correct_errors is true, invalid strings will be corrected, and the new string printed.
-def parse_string(init_string = None, init_stack = None, correct_errors=False):
+def parse_string(init_string = None, init_stack = None, correct_errors=False, verbose=False):
     
     if init_string is None:
         with open(sys.argv[1], 'r') as g:
@@ -161,13 +170,15 @@ def parse_string(init_string = None, init_stack = None, correct_errors=False):
     index = 0
 
     while remaining and parse_stack:
-        print ''.join(reversed(remaining)), ''.join(reversed(parse_stack))
+        if verbose:
+            print ''.join(reversed(remaining)), ''.join(reversed(parse_stack))
         
         string_sym = remaining.pop()
         parse_sym = parse_stack.pop()
         
         if string_sym not in TERMINALS:
-            print "ERROR:\033[1;31m", string_sym, "\033[0mis not a terminal of the given language."
+            if verbose:
+                print "ERROR:\033[1;31m", string_sym, "\033[0mis not a terminal of the given language."
             
             remaining.append(string_sym)
             parse_stack.append(parse_sym)
@@ -175,16 +186,18 @@ def parse_string(init_string = None, init_stack = None, correct_errors=False):
             if not correct_errors:
                 return (remaining, parse_stack)
             else:
-                print "Modifying remaining string:", remaining, "->",
+                prev = remaining
                 remaining = find_close_valid(remaining, parse_stack)
-                print remaining
+                if verbose:
+                    print "Modifying remaining string:", ''.join(reversed(prev)), "->", ''.join(reversed(remaining))
                 continue
 
         if parse_sym in VARIABLES:
             try:
                 substitute = P_TABLE[parse_sym][string_sym]
             except KeyError:
-                print "ERROR:\033[1;31m", string_sym, "\033[0mobtained; but variable\033[1;36m", parse_sym, "\033[0mexpects one of\033[1;32m", P_TABLE[parse_sym].keys(), "\033[0m"
+                if verbose:
+                    print "ERROR:\033[1;31m", string_sym, "\033[0mobtained; but variable\033[1;36m", parse_sym, "\033[0mexpects one of\033[1;32m", P_TABLE[parse_sym].keys(), "\033[0m"
 
                 remaining.append(string_sym)
                 parse_stack.append(parse_sym)
@@ -192,9 +205,10 @@ def parse_string(init_string = None, init_stack = None, correct_errors=False):
                 if not correct_errors:
                     return (remaining, parse_stack) 
                 else:
-                    print "Modifying remaining string:", remaining, "->",
+                    prev = remaining
                     remaining = find_close_valid(remaining, parse_stack)
-                    print remaining
+                    if verbose:
+                        print "Modifying remaining string:", ''.join(reversed(prev)), "->", ''.join(reversed(remaining))
                     continue
             
             remaining.append(string_sym)
@@ -204,27 +218,31 @@ def parse_string(init_string = None, init_stack = None, correct_errors=False):
 
         else:
             if parse_sym != string_sym:
-                print "ERROR: Terminal mismatch."
+                if verbose:
+                    print "ERROR: Terminal mismatch."
                 remaining.append(string_sym)
                 parse_stack.append(parse_sym)
                 
                 if not correct_errors:
                     return (remaining, parse_stack)
                 else:
-                    print "Modifying remaining string:", remaining, "->",
+                    prev = remaining
                     remaining = find_close_valid(remaining, parse_stack)
-                    print remaining
+                    if verbose:
+                        print "Modifying remaining string:", ''.join(reversed(prev)), "->", ''.join(reversed(remaining))
                     continue
 
             index += 1
 
     if remaining or parse_stack:
-        print "REJECTED"
+        if verbose:
+            print "REJECTED"
         return index
     else:
-        print "ACCEPTED"
+        if verbose:
+            print "ACCEPTED"
         return -1
 
 
-print parse_string(correct_errors = True)
+print parse_string(correct_errors = True, verbose = True)
 #parse_string()
