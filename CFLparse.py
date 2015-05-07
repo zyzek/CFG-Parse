@@ -153,24 +153,14 @@ def find_close_valid(string, stack):
         # result[0] = invalid substring; result[1] = stack at point of invalidation
         result = parse_string(*(current[:2]), verbose=False)
        
-        #print
-        #print "------"
-        #print 
-        #print "current: ", current 
-        #print "result: ", result
-        #print "queue: ", queue
-        #print "tried", tried
-        #print
-
-        """if result[0][0] != END:
-            print
-            print string
-            print stack
-            print result
-            print current
-            print tried
-            print queue
-            print"""
+        """print
+        print "------"
+        print 
+        print "current: ", current 
+        print "result: ", result
+        print "queue: ", queue
+        print "tried", tried
+        print"""
 
         if result != -1:
             result = list(result)
@@ -179,27 +169,26 @@ def find_close_valid(string, stack):
             return current[0] + current[2]
         else:
             tried.append(current[:2])
-            string_sym = result[0][-1]
-            parse_sym = result[1][-1]
+            string_head = result[0][-1]
+            stack_head = result[1][-1]
            
             # insertion reversal
             # delete one character from result[0], leave result[1] the same
-            if string_sym != END:
-                #print "insertions"
+            if string_head != END:
                 candidate = [ list(result[0][:-1]), 
                               list(result[1]), 
                               list(current[0][len(result[0][:-1]) + 1:] + current[2]) ]
                 
                 if candidate not in tried:
                     queue.append(candidate)
-                    #print "added", queue[-1]
 
             # deletion reversal
-            # If symbol not a terminal, must have been inserted, so don't reverse deletion
-            if string_sym in TERMINALS:
+            # If symbol not in the grammar, must have been inserted, so don't reverse deletion
+            if string_head in TERMINALS and stack_head != END:
+                
                 # retain result[1], prepend head of result[1] to result[0]
-                if parse_sym in TERMINALS:
-                    #print "terminal deletions"
+                if stack_head in TERMINALS:
+                    
                     #insert what was expected -- naive, but catches point removals
                     candidate = [ list(result[0]) + [result[1][-1]], 
                                   list(result[1]), 
@@ -207,24 +196,29 @@ def find_close_valid(string, stack):
                     
                     if candidate not in tried:
                         queue.append(candidate)
-                        #print "added", queue[-1]
+                
                 # retain result[1], prepend valid terminals to result[0]
                 else:
-                    #print "variable deletions"
-                    for term in P_TABLE[parse_sym].keys():
+                    for term in P_TABLE[stack_head].keys():
+                        if term == END:
+                            continue
                         candidate = [ list(result[0]) + [term], 
                                       list(result[1]), 
                                       current[0][len(result[0]):] + current[2] ]
                         
                         if candidate not in tried:
                             queue.append(candidate)
-                            #print "added", queue[-1]
             
-""" Attempts to parse a string. 
+""" 
+ Attempts to parse a string. 
+ 
  If no initial string is given, the file given in the first argument is consulted.
  If no initial stack is specified, the start symbol is used as the initialiser.
  If correct_errors is true, invalid substrings will be corrected.
- If verbose is false, no trace will be printed. """
+ If verbose is false, no trace will be printed. 
+ 
+ If the string was parsed successfully, returns -1,
+ otherwise, returns the last state of its remaining string and stack."""
 def parse_string(init_string = None, init_stack = None, correct_errors=False, verbose=True):
     
     # Obtain input string
@@ -236,70 +230,66 @@ def parse_string(init_string = None, init_stack = None, correct_errors=False, ve
     else:
         remaining = list(init_string)
     parse_stack = [END, START] if init_stack is None else list(init_stack)
-
+   
+    # Parse the string
+    error = False
+    corrected = False
     while remaining and parse_stack:
         if verbose:
             print ''.join(reversed(remaining)), ''.join(reversed(parse_stack))
         
-        string_sym = remaining.pop()
-        parse_sym = parse_stack.pop()
-        
-        if string_sym not in TERMINALS:
+        error_string = "\n"
+        string_head = remaining[-1]
+        stack_head = parse_stack[-1]
+
+        # Reached a symbol not in the grammar
+        if string_head not in TERMINALS:
             if verbose:
-                print "ERROR:\033[1;31m", string_sym, "\033[0mis not a terminal of the given language."
-            
-            remaining.append(string_sym)
-            parse_stack.append(parse_sym)
+                error_string += "ERROR:\033[1;31m "+string_head+" \033[0mis not a terminal of the given language.\n"
+            error = True
 
-            if not correct_errors:
-                break
-            else:
-                prev = remaining
-                remaining = find_close_valid(remaining, parse_stack)
-                if verbose:
-                    print "Modifying remaining string:", ''.join(reversed(prev)), "->", ''.join(reversed(remaining))
-                continue
-
-        if parse_sym in VARIABLES:
+        if stack_head in VARIABLES:
             try:
-                substitute = P_TABLE[parse_sym][string_sym]
+                substitute = P_TABLE[stack_head][string_head]
             except KeyError:
                 if verbose:
-                    print "ERROR:\033[1;31m", string_sym, "\033[0mobtained; but variable\033[1;36m", parse_sym, "\033[0mexpects one of\033[1;32m", P_TABLE[parse_sym].keys(), "\033[0m"
-
-                remaining.append(string_sym)
-                parse_stack.append(parse_sym)
-
-                if not correct_errors:
-                    break
-                else:
-                    prev = remaining
-                    remaining = find_close_valid(remaining, parse_stack)
-                    if verbose:
-                        print "Modifying remaining string:", ''.join(reversed(prev)), "->", ''.join(reversed(remaining))
-                    continue
+                    error_string += "ERROR:\033[1;31m "+string_head+" \033[0mobtained; but variable\033[1;36m "+stack_head+" \033[0mexpects one of\033[1;32m "+str(P_TABLE[stack_head].keys())+" \033[0m\n"
+                error = True
             
-            remaining.append(string_sym)
-            if substitute != EPSILON:
+            # Update the stack if a production rule was found
+            if not error:
+                parse_stack.pop()
                 for sym in substitute[::-1]:
                     parse_stack.append(sym)
 
+        # If the stack symbol is not a variable, it must be a terminal
         else:
-            if parse_sym != string_sym:
+            if stack_head != string_head:
                 if verbose:
-                    print "ERROR: Terminal mismatch."
-                remaining.append(string_sym)
-                parse_stack.append(parse_sym)
-                
-                if not correct_errors:
-                    break
-                else:
-                    prev = remaining
-                    remaining = find_close_valid(remaining, parse_stack)
-                    if verbose:
-                        print "Modifying remaining string:", ''.join(reversed(prev)), "->", ''.join(reversed(remaining))
-                    continue
+                    error_string += "ERROR: Terminal mismatch.\n"
+                error = True
+            else:
+                remaining.pop()
+                parse_stack.pop()
+        
+        if error:
+            if verbose:
+                print error_string
 
+            # Correct the error and carry on as if nothing happened.
+            if correct_errors:
+                prev = remaining
+                remaining = find_close_valid(remaining, parse_stack)
+                string = string[:-len(prev)] + ''.join(reversed(remaining[1:]))
+                
+                if verbose:
+                    print "Correcting remaining string:", ''.join(reversed(prev)), "->", ''.join(reversed(remaining)), "\n"
+                
+                corrected = True
+                error = False
+                continue
+            else:
+                break
 
     if remaining or parse_stack:
         if verbose:
@@ -308,6 +298,8 @@ def parse_string(init_string = None, init_stack = None, correct_errors=False, ve
     else:
         if verbose:
             print "ACCEPTED"
+            if corrected:
+                print "\nCorrected surrogate string:\n" + string
         return -1
 
 
