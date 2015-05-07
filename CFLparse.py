@@ -170,8 +170,8 @@ def find_close_valid(string, stack):
                 # leave result[1] the same, but stick whatever the expanded variable is at the front of result[0]
                 else:
                     #print "variable deletions"
-                    for prod in P_TABLE[parse_sym].values():
-                        candidate = [ list(result[0]) + list(prod[::-1]), list(result[1]), current[0][len(result[0]):] + current[2] ]
+                    for term in P_TABLE[parse_sym].keys():
+                        candidate = [ list(result[0]) + [term], list(result[1]), current[0][len(result[0]):] + current[2] ]
                         if candidate not in tried:
                             queue.append(candidate)
                             #print "added", queue[-1]
