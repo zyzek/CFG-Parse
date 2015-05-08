@@ -153,15 +153,6 @@ def find_close_valid(string, stack):
         # result[0] = invalid substring; result[1] = stack at point of invalidation
         result = parse_string(*(current[:2]), verbose=False)
        
-        """print
-        print "------"
-        print 
-        print "current: ", current 
-        print "result: ", result
-        print "queue: ", queue
-        print "tried", tried
-        print"""
-
         if result != -1:
             result = list(result)
 
