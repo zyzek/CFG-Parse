@@ -1,8 +1,6 @@
 """
     LL(1) CFG parser
     
-    Author: Anton Jurisevic -- 311180051 -- ajur4521
-
     Given an LL(1) grammar and a string,
     this program will determine whether the string belongs
     to the language defined by the grammar.
