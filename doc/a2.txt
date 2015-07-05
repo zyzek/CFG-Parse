@@ -1,0 +1,60 @@
+S -> E | SA | A
+E -> if (C) {S} | if (C) {S} else {S}
+A -> V := T;
+T -> a | b
+V -> x | y
+C -> V O T | T O V | V O V | T O T
+O -> < | >
+
+1.
+
+a)
+Variables: {S, E, A, T, V, C, O}
+Terminals: {i, f, (, ), {, }, e, l, s, :, =, ;, a, b, x, y, <, >}
+
+b) if (x > y) { if (y < a) {x := a; y :=b;} else {x := b;}}
+
+2) "S -> SA" is left recursive
+
+S -> E | SA | A
+	||
+	\/
+S -> AR | ER
+R -> AR | epsilon
+
+"E -> if (C) {S} | if (C) {S} else {S}"" can be left factored
+    ||
+    \/
+ E -> if (C) {S} F
+ F -> epsilon | else {S}
+
+"C -> VOT | TOV | VOV | TOT" has non-disjoint FIRST sets.
+	||
+	\/
+C -> DOD
+D -> V | T
+
+G'
+
+S -> AR | ER
+R -> AR | epsilon
+E -> if (C) {S} F
+F -> epsilon | else {S}
+A -> V := T;
+T -> a | b
+V -> x | y
+C -> D O D
+D -> V | T
+O -> < | >
+
+3. 
+FIRST(S) = {x, y, i}			FOLLOW(S) = {$, }}
+FIRST(R) = {x, y, epsilon}		FOLLOW(R) = {$, }}
+FIRST(E) = {i}					FOLLOW(E) = {x, y, $, }}
+FIRST(F) = {e, epsilon}			FOLLOW(F) = {x, y, $, }}
+FIRST(A) = {x, y}
+FIRST(T) = {a, b}
+FIRST(V) = {x, y}
+FIRST(C) = {a, b, x, y}
+FIRST(D) = {a, b, x, y}
+FIRST(O) = {<, >}
