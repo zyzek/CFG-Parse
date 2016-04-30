@@ -93,7 +93,7 @@ def first(string):
         return {symbol}
 
 """ Returns the FOLLOW set of a given variable. """
-def follow(variable):
+def follow(variable, used):
     follow_set = {END} if variable == START else set()
 
     for var in VARIABLES:
@@ -104,8 +104,8 @@ def follow(variable):
             while index != -1:
                 init_set = first(prod[index + 1:])
                 
-                if not followed and var != variable and EPSILON in init_set:
-                    init_set |= follow(var)
+                if not followed and var != variable and EPSILON in init_set and var not in used:
+                    init_set |= follow(var, used | {var})
                     followed = True
 
                 follow_set |= (init_set - {EPSILON})
@@ -121,7 +121,7 @@ for var in RULES:
         first_set = first(prod)
         follow_set = set()
         if EPSILON in first_set:
-            follow_set = follow(var)
+            follow_set = follow(var, set())
        
         if not first_set.isdisjoint(follow_set):
             print "First, Follow sets on",  var, "not disjoint; grammar not LL(1)"

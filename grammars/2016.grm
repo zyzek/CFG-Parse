@@ -1,0 +1,15 @@
+S -> L
+L -> I M
+M -> L | epsilon
+I -> A | C | W
+A -> uid := E;
+C -> if E then L O fi
+O -> else L | epsilon
+W -> while E do L done
+E -> G F
+F -> O G F | epsilon
+G -> T H
+H -> Q G | epsilon
+T -> uid | c
+O -> < | > | = | !=
+Q -> + | - 
